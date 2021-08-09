@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: soil-monitoring-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: soil-monitoring-deployment
+  template:
+    metadata:
+      labels:
+        app: soil-monitoring-deployment
+    spec:
+      containers:
+      - name: soil-monitoring
+        image: climatefarmers/soil-monitoring:sha-4a89d57
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 10
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 10
+        resources:
+          limits:
+            memory: "500Mi"
+          requests:
+            memory: "250Mi"
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP

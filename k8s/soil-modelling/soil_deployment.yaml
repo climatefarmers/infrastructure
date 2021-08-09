@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: soil-modelling-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: soil-modelling-deployment
+  template:
+    metadata:
+      labels:
+        app: soil-modelling-deployment
+    spec:
+      containers:
+      - name: soil-modelling
+        image: climatefarmers/soil-modelling:sha-7931b80
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 10
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 60
+          successThreshold: 1
+          timeoutSeconds: 10
+        resources:
+          limits:
+            memory: "1500Mi"
+          requests:
+            memory: "500Mi"
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
