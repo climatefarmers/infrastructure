@@ -43,6 +43,20 @@ resource "google_compute_subnetwork" "custom" {
   }
 }
 
+resource "google_compute_global_address" "dbip" {
+  name          = "${var.resource_group}-dbip-${terraform.workspace}"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = google_compute_network.custom.id
+}
+
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.custom.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.dbip.name]
+}
+
 ###################################################################################################
 # Cloud SQL and DB
 ###################################################################################################
@@ -51,6 +65,9 @@ resource "google_sql_database_instance" "primary" {
   name             = "${var.resource_group}-${var.postgres_db_name}-${terraform.workspace}"
   database_version = var.postgres_version
   region           = var.gcp_region
+  depends_on = [
+    google_compute_network.custom
+  ]
 
   settings {
     # Second-generation instance tiers are based on the machine
@@ -59,7 +76,7 @@ resource "google_sql_database_instance" "primary" {
 
     ip_configuration {
       ipv4_enabled = false
-      private_network = google_compute_network.custom.self_link
+      private_network = google_compute_network.custom.id
     }
   }
 }
