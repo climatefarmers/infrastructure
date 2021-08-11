@@ -23,12 +23,12 @@ resource "random_password" "postgres_password" {
 ###################################################################################################
 
 resource "google_compute_network" "custom" {
-  name                    = "${var.resource_group}-vpc-${var.env}"
+  name                    = "${var.resource_group}-vpc-${terraform.workspace}"
   auto_create_subnetworks = false
 }
 
 resource "google_compute_subnetwork" "custom" {
-  name          = "${var.resource_group}-subnet-${var.env}"
+  name          = "${var.resource_group}-subnet-${terraform.workspace}"
   ip_cidr_range = "10.5.0.0/20"
   region        = var.gcp_region
   network       = google_compute_network.custom.id
@@ -48,7 +48,7 @@ resource "google_compute_subnetwork" "custom" {
 ###################################################################################################
 
 resource "google_sql_database_instance" "primary" {
-  name             = "${var.resource_group}-${var.postgres_db_name}-${var.env}"
+  name             = "${var.resource_group}-${var.postgres_db_name}-${terraform.workspace}"
   database_version = var.postgres_version
   region           = var.gcp_region
 
@@ -81,11 +81,11 @@ resource "google_sql_user" "db_user" {
 ###################################################################################################
 
 resource "google_service_account" "gke" {
-  account_id   = "${var.resource_group}-gke-serviceaccount"
+  account_id   = "${var.resource_group}-gke-gsa-${terraform.workspace}"
 }
 
 resource "google_container_cluster" "primary" {
-  name     = "${var.resource_group}-${var.kubernetes_cluster_name}-${var.env}"
+  name     = "${var.resource_group}-${var.kubernetes_cluster_name}-${terraform.workspace}"
   location = "${var.gcp_region}-a" #Zonal cluster instead of regional with replicas in 3 zones 
 
   # We can't create a cluster with no node pool defined, but we want to only use
@@ -113,7 +113,7 @@ resource "google_container_cluster" "primary" {
 }
 
 resource "google_container_node_pool" "primary_preemptible_nodes" {
-  name       = "${var.resource_group}-${var.kubernetes_cluster_name}-nodepool-${var.env}"
+  name       = "${var.resource_group}-${var.kubernetes_cluster_name}-nodepool-${terraform.workspace}"
   location   = "${var.gcp_region}-a" #Zonal cluster instead of regional with replicas in 3 zones 
   cluster    = google_container_cluster.primary.name
   node_count = var.node_count
@@ -182,7 +182,7 @@ resource "kubernetes_secret" "postgres-secret" {
 
 module "my-app-workload-identity" {
   source     = "terraform-google-modules/kubernetes-engine/google//modules/workload-identity"
-  name       = "${var.resource_group}-sql-proxy-${var.env}"
+  name       = "${var.resource_group}-sql-proxy-${terraform.workspace}"
   namespace  = kubernetes_namespace.farmdb.metadata.0.name
   project_id = var.gcp_project_id
   roles = ["roles/cloudsql.admin"]
@@ -194,7 +194,7 @@ module "my-app-workload-identity" {
 ###################################################################################################
 
 resource "google_compute_global_address" "default" {
-  name = "${var.resource_group}-ip-${var.env}"
+  name = "${var.resource_group}-ip-${terraform.workspace}"
 }
 
 ###################################################################################################
@@ -212,7 +212,7 @@ module "argo_cd" {
 # Static file bucket
 ###################################################################################################
 resource "google_storage_bucket" "static" {
-  name          = "${var.resource_group}-static-${var.env}"
+  name          = "${var.resource_group}-static-${terraform.workspace}"
   location      = "EU"
   force_destroy = true
 
@@ -220,7 +220,7 @@ resource "google_storage_bucket" "static" {
 }
 
 resource "google_service_account" "static" {
-  account_id   = "${var.resource_group}-static-gsa-${var.env}"
+  account_id   = "${var.resource_group}-static-gsa-${terraform.workspace}"
 }
 
 resource "google_service_account_key" "static" {
@@ -237,16 +237,18 @@ resource "kubernetes_secret" "static" {
   }
 }
 
-data "google_iam_policy" "static" {
-  binding {
-    role = "roles/storage.admin"
-    members = [
-      "serviceAccount:${google_service_account.static.email}",
-    ]
-  }
+resource "google_storage_bucket_iam_binding" "static" {
+  bucket = google_storage_bucket.static.name
+  role = "roles/storage.admin"
+  members = [
+    "serviceAccount:${google_service_account.static.email}",
+  ]
 }
 
-resource "google_storage_bucket_iam_policy" "static" {
+resource "google_storage_bucket_iam_binding" "public_read" {
   bucket = google_storage_bucket.static.name
-  policy_data = data.google_iam_policy.static.policy_data
+  role = "roles/storage.objectViewer"
+    members = [
+      "allUsers",
+    ]
 }

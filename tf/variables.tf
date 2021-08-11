@@ -1,8 +1,3 @@
-variable "env" {
-    description = "The environment to deploy"
-    default = "dev"
-}
-
 variable "resource_group" {
     description = "A resource name prefix for grouping"
     default = "cfcommon"
