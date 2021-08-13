@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: farmdb-django
-        image: climatefarmers/farmdb-django:sha-6bc2559
+        image: climatefarmers/farmdb-django:sha-7ba133f
         livenessProbe:
           failureThreshold: 3
           httpGet:
